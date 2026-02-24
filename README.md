@@ -5,10 +5,10 @@ my implementation of the sha256 algorithm.
 
 Three functions exposed by the API:
 
-    - sha_init() - initialises values for initial context struct
+    - sha256_init() - initialises values for initial context struct
                    including initialising the hash.
-    - sha_update() - processes message blocks
-    - sha_final() - processes the final block and generates the final
+    - sha256_update() - processes message blocks
+    - sha256_final() - processes the final block and generates the final
                     hash.
 
 test.c shows a working implementation of the library.  test.c hashes
