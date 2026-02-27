@@ -1,10 +1,8 @@
-#include "../include/sha.h" 
+#include "../include/sha.h"
+#include "../include/sha_common.h"
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
-
-#define MESSAGE_LEN 64
-#define BLOCK_WORDS 16
 
 // H constants
 static const uint32_t H[8] = {
@@ -39,8 +37,6 @@ static SHA256_CTX ctx;
 static void create_block(const uint8_t *message, uint32_t *block);
 static void process(uint8_t *data);
 // Bit manipulation functions
-static inline uint32_t Ch(uint32_t x, uint32_t y, uint32_t z);
-static inline uint32_t Maj(uint32_t x, uint32_t y, uint32_t z);
 static inline uint32_t Rotr(uint32_t w, int n);
 static inline uint32_t big_sigma0(uint32_t x);
 static inline uint32_t big_sigma1(uint32_t x);
@@ -99,33 +95,17 @@ void sha256_update(const uint8_t *data, size_t len)
 // Build and process final block(s)
 void sha256_final(uint32_t *hash)
 {
-    int i, byte_set = 0;
-    int len = ctx.buffer_len;
+    int i, b_set = 0;
 
-    if (!len) ctx.buffer[0] = 0x80;
-
-    if (len >= 56) {
-        ctx.buffer[len] = 0x80;
-        process(ctx.buffer);
-        byte_set = 1;
-        len = 0;
-    }
-
-    if (len < 56) {
-        memset(ctx.buffer + len, 0, 64 - len);
-        if (!byte_set) ctx.buffer[len] = 0x80;
-        uint64_t bit_len = ctx.total_len * 8;
-        ctx.buffer[56] = (bit_len >> 56) & 0xFF;
-        ctx.buffer[57] = (bit_len >> 48) & 0xFF;
-        ctx.buffer[58] = (bit_len >> 40) & 0xFF;
-        ctx.buffer[59] = (bit_len >> 32) & 0xFF;
-        ctx.buffer[60] = (bit_len >> 24) & 0xFF;
-        ctx.buffer[61] = (bit_len >> 16) & 0xFF;
-        ctx.buffer[62] = (bit_len >> 8)  & 0xFF;
-        ctx.buffer[63] =  bit_len        & 0xFF;
-    }
-
+    sha1_256_pad(ctx.buffer_len, ctx.total_len, ctx.buffer, b_set);
     process(ctx.buffer);
+
+    if (ctx.buffer_len >= 56) {
+        b_set = 1;
+        ctx.buffer_len = 0;
+        sha1_256_pad(ctx.buffer_len, ctx.total_len, ctx.buffer, b_set);
+        process(ctx.buffer);
+    }
     
     for (i = 0; i < 8; i++) 
         hash[i] = ctx.h[i];
@@ -137,7 +117,7 @@ static void process(uint8_t *data)
     uint32_t t;
     uint32_t a, b, c, d, e, f, g, h, T1, T2;
 
-    uint32_t block[BLOCK_WORDS] = {0};
+    uint32_t block[16] = {0};
     create_block(data, block);
     uint32_t W[16]; //Message Schedule
 
@@ -190,7 +170,7 @@ static void create_block(const uint8_t *message, uint32_t *block)
     int b, w;
     uint32_t word;
 
-    for (b = 0, w = 0; b < MESSAGE_LEN; b += 4, w++) {
+    for (b = 0, w = 0; b < 64; b += 4, w++) {
         word = ((uint32_t)message[b]    << 24) | 
                ((uint32_t)message[b+1]  << 16) |
                ((uint32_t)message[b+2]  <<  8) |
@@ -200,11 +180,11 @@ static void create_block(const uint8_t *message, uint32_t *block)
 }
 
 // Functions that build message schedule
-static inline uint32_t Ch(uint32_t x, uint32_t y, uint32_t z) {
+inline uint32_t Ch(uint32_t x, uint32_t y, uint32_t z) {
     return (x & y) ^ ((~x) & z);
 }
 
-static inline uint32_t Maj(uint32_t x, uint32_t y, uint32_t z)
+inline uint32_t Maj(uint32_t x, uint32_t y, uint32_t z)
 {
     return (x & y) ^ (x & z) ^ (y & z);
 }
